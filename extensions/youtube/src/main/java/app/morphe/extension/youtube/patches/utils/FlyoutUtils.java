@@ -79,7 +79,10 @@ public final class FlyoutUtils {
             getAsciiBytes(".ytimg.com/vi/"),
             getAsciiBytes("youtube.com/watch?v=")
     );
-    private static final byte[] PLAYLIST_ID_PREFIXES_BYTES = getAsciiBytes("youtube.com/playlist?list=");
+    private static final byte[] VIDEO_LOCKUP_WITH_ATTACHMENT_BYTES =
+            getAsciiBytes("video_lockup_with_attachment.e");
+    private static final byte[] PLAYLIST_ID_PREFIXES_BYTES =
+            getAsciiBytes("youtube.com/playlist?list=");
     private static final List<byte[]> SHELFS_BYTES = List.of(
             getAsciiBytes("horizontal_shelf.e"),
             getAsciiBytes("shorts_shelf.e"),
@@ -95,8 +98,8 @@ public final class FlyoutUtils {
     private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
     private static final Pattern COMMENT_ID_CLEANUP_PATTERN = Pattern.compile("[^A-Za-z0-9_.-]");
 
-    public static int FLYOUT_BACKGROUND_COLOR = 0;
-    public static final int GREY_COLOR = ResourceUtils.getColor("yt_grey1");
+    private static int FLYOUT_BACKGROUND_COLOR = 0;
+    private static final int GREY_COLOR = ResourceUtils.getColor("yt_grey1");
 
     private static final List<Pair<String, Integer>> visibleFlyoutButtons = new ArrayList<>();
 
@@ -425,6 +428,7 @@ public final class FlyoutUtils {
         }
 
         final TextView textView = new TextView(context);
+        textView.setSingleLine(true);
         textView.setText(text);
         textView.setTextSize(16);
         textView.setTypeface(null, Typeface.BOLD);
@@ -536,8 +540,9 @@ public final class FlyoutUtils {
                 return;
             }
 
-            // Set 'flyoutVideoId' field, based on the remaining fetched litho elements.
-            setFlyoutVideoId(flyoutBuffer);
+            if (byteIndexInStartRange(byteIndexOf(flyoutBuffer, VIDEO_LOCKUP_WITH_ATTACHMENT_BYTES))) {
+                setFlyoutVideoId(flyoutBuffer);
+            }
         } catch (Exception ex) {
             Logger.printException(() -> "extractFlyoutId failure", ex);
         }
