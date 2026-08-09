@@ -75,14 +75,18 @@ public final class FlyoutUtils {
     ) {}
 
     public static final int CHANNEL_ID_LENGTH = 24;
+    private static final byte[] PLAYLIST_ID_PREFIXES_BYTES =
+            getAsciiBytes("playlist?list=");
     private static final List<byte[]> VIDEO_ID_PREFIXES_BYTES = List.of(
             getAsciiBytes(".ytimg.com/vi/"),
             getAsciiBytes("youtube.com/watch?v=")
     );
-    private static final byte[] VIDEO_LOCKUP_WITH_ATTACHMENT_BYTES =
-            getAsciiBytes("video_lockup_with_attachment.e");
-    private static final byte[] PLAYLIST_ID_PREFIXES_BYTES =
-            getAsciiBytes("youtube.com/playlist?list=");
+    private static final List<byte[]> VIDEO_ELEMENTS_BYTES = List.of(
+            getAsciiBytes("compact_playlist.e"),
+            getAsciiBytes("compact_video.e"),
+            getAsciiBytes("grid_video.e"),
+            getAsciiBytes("video_lockup_with_attachment.e")
+    );
     private static final List<byte[]> SHELFS_BYTES = List.of(
             getAsciiBytes("horizontal_shelf.e"),
             getAsciiBytes("shorts_shelf.e"),
@@ -192,8 +196,10 @@ public final class FlyoutUtils {
     }
 
     private static void addFlyoutElements(Object flyoutPanel) {
-        if (!Settings.QUEUE_ADD_FLYOUT_MENU.get()
-                || flyoutVideoId.isEmpty()) {
+        // TODO: Add playlists compatibility to Morphe's queue.
+        if (!Settings.QUEUE_ADD_FLYOUT_MENU.get() ||
+                !flyoutPlaylistId.isEmpty() ||
+                flyoutVideoId.isEmpty()) {
             return;
         }
 
@@ -534,13 +540,10 @@ public final class FlyoutUtils {
                 return;
             }
 
-            // TODO: Add playlists compatibility to Morphe's queue.
-            if (byteIndexInStartRange(byteIndexOf(flyoutBuffer, PLAYLIST_ID_PREFIXES_BYTES))) {
+            final List<Integer> listVideoElementsBytesIndexes = byteIndexesOf(flyoutBuffer, VIDEO_ELEMENTS_BYTES);
+            if (!listVideoElementsBytesIndexes.isEmpty() && byteIndexInStartRange(listVideoElementsBytesIndexes.get(0))) {
                 setFlyoutPlaylistId(flyoutBuffer);
-                return;
-            }
 
-            if (byteIndexInStartRange(byteIndexOf(flyoutBuffer, VIDEO_LOCKUP_WITH_ATTACHMENT_BYTES))) {
                 setFlyoutVideoId(flyoutBuffer);
             }
         } catch (Exception ex) {
@@ -748,7 +751,7 @@ public final class FlyoutUtils {
         final int haystackLen = haystack.length;
 
         final boolean[] found = new boolean[needles.size()];
-        for (int i = startIndex; i <= haystackLen; i++) {
+        for (int i = startIndex; i < haystackLen; i++) {
             for (int k = 0; k < needles.size(); k++) {
                 final byte[] needle = needles.get(k);
                 if (found[k] || needle == null) {
