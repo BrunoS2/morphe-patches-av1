@@ -75,6 +75,8 @@ public final class FlyoutUtils {
     ) {}
 
     public static final int CHANNEL_ID_LENGTH = 24;
+    private static final byte[] PLAYLIST_ID_PREFIXES_BYTES =
+            getAsciiBytes("playlist?list=");
     private static final List<byte[]> VIDEO_ID_PREFIXES_BYTES = List.of(
             getAsciiBytes(".ytimg.com/vi/"),
             getAsciiBytes("youtube.com/watch?v=")
@@ -85,8 +87,6 @@ public final class FlyoutUtils {
             getAsciiBytes("grid_video.e"),
             getAsciiBytes("video_lockup_with_attachment.e")
     );
-    private static final byte[] PLAYLIST_ID_PREFIXES_BYTES =
-            getAsciiBytes("playlist?list=");
     private static final List<byte[]> SHELFS_BYTES = List.of(
             getAsciiBytes("horizontal_shelf.e"),
             getAsciiBytes("shorts_shelf.e"),
