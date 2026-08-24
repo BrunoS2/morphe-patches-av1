@@ -9,6 +9,7 @@ package app.morphe.extension.music.patches.album;
 
 import androidx.annotation.GuardedBy;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -47,6 +48,17 @@ public class AlbumMusicVideoPatch {
      * album waits for it. Giving up leaves the music video playing.
      */
     private static final long MAX_MILLISECONDS_TO_WAIT_FOR_ALBUM = 5000;
+
+    /**
+     * Album track the song streams of each music video came from.
+     */
+    @GuardedBy("itself")
+    private static final Map<String, PlaylistRequest.Song> songs = new LinkedHashMap<>() {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, PlaylistRequest.Song> eldest) {
+            return size() > NUMBER_OF_LAST_VIDEO_IDS_TO_TRACK;
+        }
+    };
 
     /**
      * Album position of the videos of the most recent player responses.
@@ -116,6 +128,17 @@ public class AlbumMusicVideoPatch {
     }
 
     /**
+     * @return The album track playing under the given video, or null if it is not substituted.
+     */
+    @Nullable
+    public static PlaylistRequest.Song getSong(@Nullable String videoId) {
+        if (videoId == null || !isEnabled()) return null;
+        synchronized (songs) {
+            return songs.get(videoId);
+        }
+    }
+
+    /**
      * Called off the main thread, just before the streams of the video are fetched.
      */
     private static String resolveVideoIdToFetch(@NonNull String videoId) {
@@ -132,17 +155,21 @@ public class AlbumMusicVideoPatch {
                     PlaylistRequest.getRequestForPlaylistId(track.playlistId());
             if (request == null) return videoId;
 
-            String songId = request.awaitSongId(
+            PlaylistRequest.Song song = request.awaitSong(
                     track.playlistIndex(), MAX_MILLISECONDS_TO_WAIT_FOR_ALBUM);
-            if (songId.isEmpty()) {
+            if (song == null) {
                 Logger.printDebug(() -> "Official song not found, videoId: " + videoId);
                 return videoId;
             }
-            if (songId.equals(videoId)) {
+            if (song.videoId().equals(videoId)) {
                 // The album track has no music video, or is already the song version.
                 return videoId;
             }
-            return songId;
+
+            synchronized (songs) {
+                songs.put(videoId, song);
+            }
+            return song.videoId();
         } catch (Exception ex) {
             Logger.printException(() -> "resolveVideoIdToFetch failure", ex);
             return videoId;

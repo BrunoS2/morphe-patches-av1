@@ -67,7 +67,13 @@ public final class PlaylistRequest {
 
     private static final int NUMBER_OF_ALBUMS_TO_CACHE = 5;
 
-    private static final String[] NO_SONGS = new String[0];
+    private static final Song[] NO_SONGS = new Song[0];
+
+    /**
+     * An album track as the album itself lists it, rather than as the queue plays it.
+     */
+    public record Song(String videoId, String title, String artist) {
+    }
 
     private static final TimeZone TIME_ZONE = TimeZone.getDefault();
     private static final int UTC_OFFSET_MINUTES = TIME_ZONE.getOffset(new Date().getTime()) / 60000;
@@ -85,11 +91,10 @@ public final class PlaylistRequest {
     private final long timeFetched = System.currentTimeMillis();
 
     /**
-     * Song version video ids indexed by their position in the album,
-     * or null while the fetch is still running.
+     * Album tracks indexed by their position, or null while the fetch is still running.
      */
     @Nullable
-    private volatile String[] songIds;
+    private volatile Song[] songs;
 
     private final CountDownLatch fetchCompleted = new CountDownLatch(1);
 
@@ -97,7 +102,7 @@ public final class PlaylistRequest {
         this.playlistId = playlistId;
         Utils.runOnBackgroundThread(() -> {
             try {
-                songIds = fetch(videoId, playlistId);
+                songs = fetch(videoId, playlistId);
             } finally {
                 fetchCompleted.countDown();
             }
@@ -132,7 +137,7 @@ public final class PlaylistRequest {
     }
 
     private boolean isExpired(long now) {
-        String[] ids = songIds;
+        Song[] ids = songs;
         // Keep in flight requests, and drop failed ones at once so the next track can retry.
         if (ids == null) return false;
         if (ids.length == 0) return true;
@@ -143,38 +148,30 @@ public final class PlaylistRequest {
      * Waits for the album to be fetched, and returns at once if it already is.
      * Must not be called from the main thread.
      *
-     * @return The song version of the album track at the given position, or an empty string
-     *         if the album could not be fetched in time.
+     * @return The album track at the given position, or null if the album could not be
+     *         fetched in time.
      */
-    @NonNull
-    public String awaitSongId(int playlistIndex, long timeoutMilliseconds) {
+    @Nullable
+    public Song awaitSong(int playlistIndex, long timeoutMilliseconds) {
         try {
             if (!fetchCompleted.await(timeoutMilliseconds, TimeUnit.MILLISECONDS)) {
                 Logger.printDebug(() -> "Timed out waiting for album: " + playlistId);
-                return "";
+                return null;
             }
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
-            return "";
+            return null;
         }
-        return getSongId(playlistIndex);
-    }
 
-    /**
-     * @return The song version of the album track at the given position, or an empty string
-     *         if the album is not fetched yet or holds no track at that position.
-     */
-    @NonNull
-    public String getSongId(int playlistIndex) {
-        String[] ids = songIds;
-        if (ids == null || playlistIndex < 0 || playlistIndex >= ids.length) {
-            return "";
+        Song[] albumSongs = songs;
+        if (albumSongs == null || playlistIndex < 0 || playlistIndex >= albumSongs.length) {
+            return null;
         }
-        return ids[playlistIndex];
+        return albumSongs[playlistIndex];
     }
 
     @NonNull
-    private static String[] fetch(@NonNull String videoId, @NonNull String playlistId) {
+    private static Song[] fetch(@NonNull String videoId, @NonNull String playlistId) {
         for (int attempt = 1; ; attempt++) {
             JSONObject playlistJson = sendRequest(videoId, playlistId);
             if (playlistJson != null) {
@@ -291,7 +288,7 @@ public final class PlaylistRequest {
     }
 
     @NonNull
-    private static String[] parseResponse(@NonNull JSONObject playlistJson) {
+    private static Song[] parseResponse(@NonNull JSONObject playlistJson) {
         try {
             JSONObject singleColumnWatchNextResults = playlistJson
                     .getJSONObject("contents")
@@ -314,11 +311,11 @@ public final class PlaylistRequest {
 
             JSONArray contents = playlistObj.getJSONArray("contents");
             final int length = contents.length();
-            String[] ids = new String[length];
+            Song[] albumSongs = new Song[length];
             for (int i = 0; i < length; i++) {
-                ids[i] = parseVideoId(contents.opt(i));
+                albumSongs[i] = parseSong(contents.opt(i));
             }
-            return ids;
+            return albumSongs;
         } catch (JSONException e) {
             Logger.printException(() -> "Fetch failed while processing response data for response: "
                     + playlistJson, e);
@@ -326,18 +323,35 @@ public final class PlaylistRequest {
         return NO_SONGS;
     }
 
-    @NonNull
-    private static String parseVideoId(@Nullable Object entry) {
+    @Nullable
+    private static Song parseSong(@Nullable Object entry) {
         if (!(entry instanceof JSONObject)) {
-            return "";
+            return null;
         }
         JSONObject renderer = ((JSONObject) entry).optJSONObject("playlistPanelVideoRenderer");
-        JSONObject navigationEndpoint = renderer == null
-                ? null
-                : renderer.optJSONObject("navigationEndpoint");
+        if (renderer == null) {
+            return null;
+        }
+        JSONObject navigationEndpoint = renderer.optJSONObject("navigationEndpoint");
         JSONObject watchEndpoint = navigationEndpoint == null
                 ? null
                 : navigationEndpoint.optJSONObject("watchEndpoint");
-        return watchEndpoint == null ? "" : watchEndpoint.optString("videoId", "");
+        if (watchEndpoint == null) {
+            return null;
+        }
+        String videoId = watchEndpoint.optString("videoId", "");
+        if (videoId.isEmpty()) {
+            return null;
+        }
+        return new Song(videoId, parseRuns(renderer, "title"),
+                parseRuns(renderer, "longBylineText"));
+    }
+
+    @NonNull
+    private static String parseRuns(@NonNull JSONObject renderer, @NonNull String name) {
+        JSONObject text = renderer.optJSONObject(name);
+        JSONArray runs = text == null ? null : text.optJSONArray("runs");
+        JSONObject first = runs == null ? null : runs.optJSONObject(0);
+        return first == null ? "" : first.optString("text", "");
     }
 }
