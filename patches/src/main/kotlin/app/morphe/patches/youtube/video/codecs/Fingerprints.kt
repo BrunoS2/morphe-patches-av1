@@ -26,11 +26,12 @@ internal object HDRCapabilityFingerprint : Fingerprint(
     }
 )
 
+// I'll change it later
 internal object Vp9CapabilityFingerprint : Fingerprint(
     accessFlags = listOf(AccessFlags.PUBLIC, AccessFlags.FINAL),
     returnType = "Z",
     strings = listOf(
-        "vp9_supported",
-        "video/x-vnd.on2.vp9"
+        "av1_supported",
+        "video/av01"
     )
 )
