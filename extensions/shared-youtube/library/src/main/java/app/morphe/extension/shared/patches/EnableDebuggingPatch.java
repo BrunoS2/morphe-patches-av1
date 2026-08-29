@@ -66,8 +66,6 @@ public final class EnableDebuggingPatch {
      * Injection point.
      */
     public static boolean isBooleanFeatureFlagEnabled(boolean value, long flag) {
-        if (flag == 45751092) return true;
-
         if (LOG_FEATURE_FLAGS) {
             Long flagObj = flag;
             if (DISABLED_FEATURE_FLAGS.contains(flagObj)) {
