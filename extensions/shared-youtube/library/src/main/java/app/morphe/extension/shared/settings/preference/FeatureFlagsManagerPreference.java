@@ -264,6 +264,10 @@ public class FeatureFlagsManagerPreference extends Preference {
 
         Window window = dialog.getWindow();
         if (window != null) {
+            WindowManager.LayoutParams params = window.getAttributes();
+            params.height = WindowManager.LayoutParams.MATCH_PARENT;
+            window.setAttributes(params);
+
             // Keep the buttons reachable while the keyboard is open, and do not
             // open the keyboard until the search box is tapped.
             window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN
