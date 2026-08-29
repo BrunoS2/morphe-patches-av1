@@ -273,6 +273,7 @@ Changes include:
     <string name="morphe_hide_comments_preview_comment_summary">Hides the comment preview under video before opening the full comments section</string>
     <string name="morphe_hide_comments_thanks_button_title">Hide Thanks button</string>
     <string name="morphe_hide_comments_timestamp_button_title">Hide Timestamp button</string>
+    <string name="morphe_hide_comments_top_fans_button_title">Hide \'Top fans\' button</string>
     <string name="morphe_sanitize_comments_highlighted_search_links_title">Sanitize highlighted search links</string>
     <string name="morphe_sanitize_comments_highlighted_search_links_summary">Sanitizes highlighted search links, leaving only the original plain text</string>
 
@@ -920,6 +921,10 @@ Settings → Playback (or Autoplay) → Autoplay next video"</string>
     <string name="morphe_disable_player_popup_panels_title">Disable player popup panels</string>
     <string name="morphe_disable_player_popup_panels_summary">Disables playlist and live chat panels from opening automatically</string>
 
+    <!-- layout.playlistautoplay.disablePlaylistAutoplayPatch -->
+    <string name="morphe_disable_playlist_autoplay_title">Disable playlist autoplay</string>
+    <string name="morphe_disable_playlist_autoplay_summary">Prevents playlists from automatically advancing to the next video</string>
+
     <!-- layout.player.fullscreen.exitFullscreenPatch -->
     <string name="morphe_exit_fullscreen_title">Exit fullscreen mode on video end</string>
     <string name="morphe_exit_fullscreen_entry_1">Disabled</string>
@@ -929,10 +934,11 @@ Settings → Playback (or Autoplay) → Autoplay next video"</string>
 
     <!-- layout.player.fullscreen.disableFullscreenGesturesPatch -->
     <string name="morphe_disable_fullscreen_gestures_title">Fullscreen gestures</string>
-    <string name="morphe_disable_fullscreen_gestures_summary">Player gestures to enter or exit from fullscreen mode</string>
+    <string name="morphe_disable_fullscreen_gestures_summary">Player gestures in fullscreen mode</string>
     <string name="morphe_disable_fullscreen_pulled_up_gesture_title">Disable portrait swipe-up gesture</string>
     <string name="morphe_disable_fullscreen_sliding_down_gesture_title">Disable portrait swipe-down gesture</string>
     <string name="morphe_disable_fullscreen_dragged_down_gesture_title">Disable landscape swipe-down gesture</string>
+    <string name="morphe_disable_fullscreen_zoom_gesture_title">Disable pinch-to-zoom gesture</string>
 
     <!-- layout.player.fullscreen.openVideosFullscreenPatch -->
     <string name="morphe_open_videos_fullscreen_title">Open videos in fullscreen mode</string>
@@ -1268,6 +1274,14 @@ Tap here to open DeArrow.ajay.app"</string>
 
     <!-- video.codecs.disableVideoCodecsPatch -->
     <string name="morphe_disable_hdr_video_title">Disable HDR video</string>
+    <string name="morphe_force_hdr_video_title">Force HDR video</string>
+    <string name="morphe_force_hdr_video_summary">Forces app to recognize this device as HDR‑capable</string>
+    <string name="morphe_force_hdr_video_user_dialog_message">"Use this if HDR decoding works but YouTube does not offer HDR, such as some HyperOS devices that hide HLG.
+
+Limitations:
+• Colors may look wrong if the display cannot actually show HDR
+• Playback may fail if the decoder cannot handle HDR
+• HDR still depends on the spoof video streams client"</string>
     <string name="morphe_force_avc_codec_title">Force AVC (H.264) codec</string>
     <string name="morphe_force_avc_codec_user_dialog_message">"Benefits:
 • Can improve battery life
