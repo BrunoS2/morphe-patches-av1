@@ -37,7 +37,7 @@ final class FeatureFlagsBisect {
     }
 
     private static final String FIELD_SEPARATOR = ";";
-    private static final String FLAG_SEPARATOR = ",";
+    private static final char FLAG_SEPARATOR = ',';
 
     /**
      * Flags that may still cause the behavior.

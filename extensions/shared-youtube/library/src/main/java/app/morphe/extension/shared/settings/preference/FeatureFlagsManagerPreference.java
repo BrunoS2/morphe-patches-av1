@@ -46,10 +46,10 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 
-import androidx.annotation.ColorInt;
 import androidx.annotation.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -117,8 +117,8 @@ public class FeatureFlagsManagerPreference extends Preference {
      * Which flags the list shows.
      */
     private enum FlagFilter {
-        ALL("morphe_debug_feature_flags_manager_filter_all"),
         ACTIVE("morphe_debug_feature_flags_manager_filter_active"),
+        INACTIVE("morphe_debug_feature_flags_manager_filter_inactive"),
         BLOCKED("morphe_debug_feature_flags_manager_filter_blocked"),
         FORCED("morphe_debug_feature_flags_manager_filter_forced");
 
@@ -128,12 +128,12 @@ public class FeatureFlagsManagerPreference extends Preference {
             this.stringKey = stringKey;
         }
 
-        boolean matches(FlagState state) {
+        boolean matches(FlagState state, @Nullable Boolean loggedValue) {
             return switch (this) {
-                case ACTIVE -> state == FlagState.AUTO;
+                case ACTIVE -> state == FlagState.AUTO && Boolean.TRUE.equals(loggedValue);
+                case INACTIVE -> state == FlagState.AUTO && !Boolean.TRUE.equals(loggedValue);
                 case BLOCKED -> state == FlagState.BLOCKED;
                 case FORCED -> state == FlagState.FORCED;
-                default -> true;
             };
         }
     }
@@ -151,9 +151,14 @@ public class FeatureFlagsManagerPreference extends Preference {
      */
     private final TreeMap<Long, FlagState> flagStates = new TreeMap<>();
 
+    /**
+     * The last logged state of each flag.
+     */
+    private final Map<Long, Boolean> loggedFlagStates = new HashMap<>();
+
     private final Map<FlagFilter, TextView> chips = new LinkedHashMap<>();
 
-    private FlagFilter filter = FlagFilter.ALL;
+    private FlagFilter filter = FlagFilter.ACTIVE;
 
     private FlagAdapter adapter;
 
@@ -164,6 +169,8 @@ public class FeatureFlagsManagerPreference extends Preference {
     private LinearLayout actionButtons;
 
     private LinearLayout selectionButtons;
+
+    private ImageButton deselectButton;
 
     {
         setOnPreferenceClickListener(pref -> {
@@ -228,7 +235,7 @@ public class FeatureFlagsManagerPreference extends Preference {
                     ? FlagState.FORCED
                     : FlagState.AUTO);
         }
-        filter = FlagFilter.ALL;
+        filter = FlagFilter.ACTIVE;
         chips.clear();
 
         Pair<Dialog, LinearLayout> dialogPair = CustomDialog.create(
@@ -269,7 +276,11 @@ public class FeatureFlagsManagerPreference extends Preference {
      * logged while the app runs and a blocked flag is never logged again.
      */
     private TreeSet<Long> loadKnownFlags() {
-        TreeSet<Long> flags = new TreeSet<>(EnableDebuggingPatch.getAllLoggedFlags());
+        Map<Long, Boolean> loggedFlags = EnableDebuggingPatch.getAllLoggedFlags();
+        loggedFlagStates.clear();
+        loggedFlagStates.putAll(loggedFlags);
+
+        TreeSet<Long> flags = new TreeSet<>(loggedFlags.keySet());
         flags.addAll(EnableDebuggingPatch.parseFlags(SharedYouTubeSettings.KNOWN_FEATURE_FLAGS.get()));
         flags.addAll(EnableDebuggingPatch.parseFlags(SharedYouTubeSettings.DISABLED_FEATURE_FLAGS.get()));
         flags.addAll(EnableDebuggingPatch.parseFlags(SharedYouTubeSettings.FORCED_FEATURE_FLAGS.get()));
@@ -422,13 +433,13 @@ public class FeatureFlagsManagerPreference extends Preference {
             FlagFilter chipFilter = entry.getKey();
             TextView chip = entry.getValue();
 
-            int count = 0;
-            for (FlagState state : flagStates.values()) {
-                if (chipFilter.matches(state)) count++;
+            int flagCount = 0;
+            for (Map.Entry<Long, FlagState> flagEntry : flagStates.entrySet()) {
+                if (chipFilter.matches(flagEntry.getValue(), loggedFlagStates.get(flagEntry.getKey()))) flagCount++;
             }
 
             final boolean selected = chipFilter == filter;
-            chip.setText(str(chipFilter.stringKey, count));
+            chip.setText(str(chipFilter.stringKey, flagCount));
             chip.setTextColor(selected
                     ? (Utils.isDarkModeEnabled() ? Color.BLACK : Color.WHITE)
                     : ThemeUtils.getAppForegroundColor());
@@ -551,17 +562,12 @@ public class FeatureFlagsManagerPreference extends Preference {
         selectionButtons = new LinearLayout(context);
         selectionButtons.setOrientation(LinearLayout.HORIZONTAL);
         selectionButtons.setGravity(Gravity.CENTER);
-        selectionButtons.addView(createStateButton(context, "morphe_debug_feature_flags_manager_state_auto",
-                FlagState.AUTO));
-        selectionButtons.addView(createStateButton(context, "morphe_debug_feature_flags_manager_state_blocked",
-                FlagState.BLOCKED));
-        selectionButtons.addView(createStateButton(context, "morphe_debug_feature_flags_manager_state_forced",
-                FlagState.FORCED));
-        selectionButtons.addView(createIconButton(context, DRAWABLE_MORPHE_SETTINGS_DESELECT_ALL, () -> {
+
+        deselectButton = createIconButton(context, DRAWABLE_MORPHE_SETTINGS_DESELECT_ALL, () -> {
             listView.clearChoices();
             adapter.notifyDataSetChanged();
             updateBottomBar();
-        }));
+        });
 
         bar.addView(actionButtons);
         bar.addView(selectionButtons);
@@ -576,6 +582,23 @@ public class FeatureFlagsManagerPreference extends Preference {
         final boolean hasSelection = !getSelectedFlags().isEmpty();
         actionButtons.setVisibility(hasSelection ? View.GONE : View.VISIBLE);
         selectionButtons.setVisibility(hasSelection ? View.VISIBLE : View.GONE);
+
+        if (hasSelection) {
+            selectionButtons.removeAllViews();
+            Context context = getContext();
+
+            Button actionButton = switch (filter) {
+                case ACTIVE -> createStateButton(context,
+                        "morphe_debug_feature_flags_manager_action_force_off", FlagState.BLOCKED);
+                case INACTIVE -> createStateButton(context,
+                        "morphe_debug_feature_flags_manager_action_force_on", FlagState.FORCED);
+                case BLOCKED, FORCED -> createStateButton(context,
+                        "morphe_debug_feature_flags_manager_action_remove", FlagState.AUTO);
+            };
+
+            selectionButtons.addView(actionButton);
+            selectionButtons.addView(deselectButton);
+        }
     }
 
     /**
@@ -781,9 +804,9 @@ public class FeatureFlagsManagerPreference extends Preference {
 
     private String buildExportText() {
         return "app=" + Utils.getAppVersionName()
-                + "\nblocked=" + EnableDebuggingPatch.serializeFlags(flagsWithState(FlagState.BLOCKED), ",")
-                + "\nforced=" + EnableDebuggingPatch.serializeFlags(flagsWithState(FlagState.FORCED), ",")
-                + "\nknown=" + EnableDebuggingPatch.serializeFlags(flagStates.keySet(), ",");
+                + "\nblocked=" + EnableDebuggingPatch.serializeFlags(flagsWithState(FlagState.BLOCKED), ',')
+                + "\nforced=" + EnableDebuggingPatch.serializeFlags(flagsWithState(FlagState.FORCED), ',')
+                + "\nknown=" + EnableDebuggingPatch.serializeFlags(flagStates.keySet(), ',');
     }
 
     /**
@@ -995,7 +1018,6 @@ public class FeatureFlagsManagerPreference extends Preference {
      */
     private static class FlagRow extends LinearLayout implements Checkable {
         private final TextView flagText;
-        private final TextView stateText;
         private final ShapeDrawable background;
         private boolean checked;
 
@@ -1011,38 +1033,23 @@ public class FeatureFlagsManagerPreference extends Preference {
 
             flagText = new TextView(context);
             flagText.setTextSize(15);
+            flagText.setSingleLine(true);
+            flagText.setEllipsize(TextUtils.TruncateAt.END);
             flagText.setTextColor(ThemeUtils.getAppForegroundColor());
             addView(flagText, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1f));
-
-            stateText = new TextView(context);
-            stateText.setTextSize(12);
-            stateText.setTextColor(ThemeUtils.getAppForegroundColor());
-            stateText.setPadding(Dim.dp8, Dim.dp2, Dim.dp8, Dim.dp2);
-            ShapeDrawable stateBackground = new ShapeDrawable(
-                    new RoundRectShape(Dim.roundedCorners(8), null, null));
-            stateBackground.getPaint().setColor(withAlpha(ThemeUtils.getAppForegroundColor(), 0x22));
-            stateText.setBackground(stateBackground);
-            addView(stateText);
         }
 
-        void bind(long flag, FlagState state) {
+        void bind(long flag) {
             flagText.setText(String.valueOf(flag));
-
-            if (state == FlagState.AUTO) {
-                stateText.setVisibility(GONE);
-            } else {
-                stateText.setVisibility(VISIBLE);
-                stateText.setText(str(state == FlagState.BLOCKED
-                        ? "morphe_debug_feature_flags_manager_state_blocked"
-                        : "morphe_debug_feature_flags_manager_state_forced"));
-            }
         }
 
         @Override
         public void setChecked(boolean checked) {
             this.checked = checked;
+            int color = ThemeUtils.getAppForegroundColor();
+            int alpha = 0x33;
             background.getPaint().setColor(checked
-                    ? withAlpha(ThemeUtils.getAppForegroundColor(), 0x33)
+                    ? (alpha << 24) | (color & 0x00FFFFFF)
                     : Color.TRANSPARENT);
             invalidate();
         }
@@ -1057,10 +1064,6 @@ public class FeatureFlagsManagerPreference extends Preference {
             setChecked(!checked);
         }
 
-        @ColorInt
-        private static int withAlpha(@ColorInt int color, int alpha) {
-            return (alpha << 24) | (color & 0x00FFFFFF);
-        }
     }
 
     /**
@@ -1083,7 +1086,7 @@ public class FeatureFlagsManagerPreference extends Preference {
         void refresh() {
             shownFlags.clear();
             for (Map.Entry<Long, FlagState> entry : flagStates.entrySet()) {
-                if (!filter.matches(entry.getValue())) continue;
+                if (!filter.matches(entry.getValue(), loggedFlagStates.get(entry.getKey()))) continue;
                 if (!searchQuery.isEmpty() && !String.valueOf(entry.getKey()).contains(searchQuery)) continue;
                 shownFlags.add(entry.getKey());
             }
@@ -1111,8 +1114,7 @@ public class FeatureFlagsManagerPreference extends Preference {
                     ? (FlagRow) convertView
                     : new FlagRow(context);
 
-            Long flag = shownFlags.get(position);
-            row.bind(flag, flagStates.get(flag));
+            row.bind(shownFlags.get(position));
 
             return row;
         }

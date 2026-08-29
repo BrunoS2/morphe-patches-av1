@@ -111,7 +111,7 @@ You will not be notified of any unexpected events."</string>
     <string name="morphe_debug_feature_flags_manager_summary">Manage boolean feature flags</string>
     <string name="morphe_debug_feature_flags_manager_search_hint">Search feature flags…</string>
     <!-- Keep short, four of these are shown in one row. -->
-    <string name="morphe_debug_feature_flags_manager_filter_all">All (%s)</string>
+    <string name="morphe_debug_feature_flags_manager_filter_inactive">Not active (%s)</string>
     <!-- Keep short, four of these are shown in one row. -->
     <string name="morphe_debug_feature_flags_manager_filter_active">Active (%s)</string>
     <!-- Keep short, four of these are shown in one row. -->
@@ -124,6 +124,9 @@ You will not be notified of any unexpected events."</string>
     <string name="morphe_debug_feature_flags_manager_state_blocked">Off</string>
     <!-- Keep short, shown as a badge and as a button. -->
     <string name="morphe_debug_feature_flags_manager_state_forced">On</string>
+    <string name="morphe_debug_feature_flags_manager_action_force_on">Force on</string>
+    <string name="morphe_debug_feature_flags_manager_action_force_off">Force off</string>
+    <string name="morphe_debug_feature_flags_manager_action_remove">Remove</string>
     <string name="morphe_debug_feature_flags_manager_toast_saved">Feature flags saved</string>
     <string name="morphe_debug_feature_flags_manager_toast_reset">Feature flags reset</string>
     <string name="morphe_debug_feature_flags_manager_toast_copied">Feature flags copied to clipboard</string>

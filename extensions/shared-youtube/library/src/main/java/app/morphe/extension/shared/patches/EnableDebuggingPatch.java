@@ -10,12 +10,12 @@
 
 package app.morphe.extension.shared.patches;
 
-import static java.lang.Boolean.TRUE;
-
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -76,7 +76,8 @@ public final class EnableDebuggingPatch {
             if (FORCED_FEATURE_FLAGS.contains(flagObj)) {
                 return true;
             }
-            if (value && featureFlags.putIfAbsent(flagObj, TRUE) == null) {
+            // Always add flag but only log if flag is enabled.
+            if (featureFlags.putIfAbsent(flagObj, value) == null && value) {
                 Logger.printDebug(() -> "boolean feature is enabled: " + flag);
             }
         }
@@ -138,14 +139,15 @@ public final class EnableDebuggingPatch {
 
     /**
      * Get all logged feature flags.
-     * @return Set of all known flags
+     * @return Map of all known flags and their current state
      */
-    public static Set<Long> getAllLoggedFlags() {
+    public static Map<Long, Boolean> getAllLoggedFlags() {
         if (featureFlags != null) {
-            return new HashSet<>(featureFlags.keySet());
+            return Collections.unmodifiableMap(featureFlags);
         }
 
-        return new HashSet<>();
+        // In practice this is never reached because at least one flag is always encountered.
+        return Collections.emptyMap();
     }
 
     /**
@@ -154,7 +156,7 @@ public final class EnableDebuggingPatch {
      * @return String containing newline-separated flag IDs
      */
     public static String serializeFlags(Collection<Long> flags) {
-        return serializeFlags(flags, "\n");
+        return serializeFlags(flags, '\n');
     }
 
     /**
@@ -162,9 +164,10 @@ public final class EnableDebuggingPatch {
      * @param separator Separator to put between the flag IDs
      * @return String containing the separated flag IDs
      */
-    public static String serializeFlags(Collection<Long> flags, String separator) {
-        StringBuilder builder = new StringBuilder();
+    public static String serializeFlags(Collection<Long> flags, char separator) {
+        StringBuilder builder = new StringBuilder(10 * flags.size());
         for (Long flag : flags) {
+            //noinspection SizeReplaceableByIsEmpty
             if (builder.length() != 0) {
                 builder.append(separator);
             }
@@ -188,16 +191,19 @@ public final class EnableDebuggingPatch {
      * @return Parsed flag IDs, in the order they appear
      */
     public static List<Long> parseFlagList(String flags) {
-        List<Long> parsedFlags = new ArrayList<>();
-        if (!flags.isBlank()) {
-            for (String flag : flags.split("[,\\s]+")) {
-                String trimmedFlag = flag.trim();
-                if (trimmedFlag.isEmpty()) continue; // Skip empty entries.
-                try {
-                    parsedFlags.add(Long.parseLong(trimmedFlag));
-                } catch (NumberFormatException e) {
-                    Logger.printException(() -> "Invalid flag ID: " + flag);
-                }
+        if (flags.isBlank()) {
+            return Collections.emptyList();
+        }
+
+        String[] split = flags.split("[,\\s]+");
+        List<Long> parsedFlags = new ArrayList<>(split.length);
+        for (String flag : split) {
+            String trimmedFlag = flag.trim();
+            if (trimmedFlag.isEmpty()) continue; // Skip empty entries.
+            try {
+                parsedFlags.add(Long.parseLong(trimmedFlag));
+            } catch (NumberFormatException e) {
+                Logger.printException(() -> "Invalid flag ID: " + flag);
             }
         }
 
