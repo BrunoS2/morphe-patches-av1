@@ -2,12 +2,12 @@ group = "app.morphe"
 
 patches {
     about {
-        name = "Morphe Patches"
+        name = "Morphe Patches with AV1 support"
         description = "Patches for Morphe"
-        source = "git@github.com:MorpheApp/morphe-patches.git"
-        author = "MorpheApp"
+        source = "git@github.com:BrunoS2/morphe-patches.git"
+        author = "BrunoS2"
         contact = "na"
-        website = "https://morphe.software"
+        website = "https://github.com/BrunoS2/"
         license = "GNU General Public License v3.0, with additional GPL section 7 requirements"
     }
 }
